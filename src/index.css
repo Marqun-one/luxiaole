@@ -11,3 +11,11 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+ .RecordTimer {
+  float: left;
+  line-height: 20%;
+ }
+ .AcountP {
+  margin: 0;
+  
+ }
