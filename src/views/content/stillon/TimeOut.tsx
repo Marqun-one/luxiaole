@@ -3,9 +3,11 @@ import dayjs, { Dayjs } from 'dayjs';
 import type { BadgeProps, CalendarProps, RadioChangeEvent } from 'antd';
 import { Badge, Calendar } from 'antd';
 import { sendGetRequest, sendPostRequest } from '../../../utils/AxiosUtil';
-import { AddStillOnDetail, StillOnDetail } from '../../../common/publicConfig/Api';
+import { AddStillOnDetail, DelStillOnDetail, StillOnDetail } from '../../../common/publicConfig/Api';
 import { Button, Input, InputNumber, Modal, Space, message } from 'antd';
 import { Radio } from 'antd';
+import { async } from 'q';
+import { resolve } from 'path';
 
 export interface StillOnDetail {
   id?: number;
@@ -33,7 +35,6 @@ const options = [
 ];
 
 const getListData = (value: Dayjs, stillOnDetailList: StillOnDetail[]) => {
-  let listData;
   const year = value.year();
   const month = value.month() + 1;
   const day = value.date();
@@ -61,7 +62,7 @@ const TimeOut: React.FC = () => {
   const [typeValue, setTypeValue] = useState('success');
   const [open, setOpen] = useState(false);
   const [curDate, setCurDate] = useState(today)
-  const [info, setInfo] = useState('一次只能增加一条');
+  const [info, setInfo] = useState('');
   useEffect(() => {
     sendGetRequest(StillOnDetail).then((value) => {
       setRenderInfoList(value.data);
@@ -74,6 +75,13 @@ const TimeOut: React.FC = () => {
 
    const handleConfirm = async () => {
     setOpen(false);
+    if (info === null || info === '' || info === undefined) {
+      messageApi.open({
+        type: 'error',
+        content: '输入非法,请重新输入!',
+      });
+      return;
+    }
     const stillOnDetailItem: StillOnDetail = {
       year: curDate.year(),
       month: curDate.month() + 1,
@@ -114,9 +122,41 @@ const TimeOut: React.FC = () => {
     )
   };
 
+  const deleteItem = (value: { type: string; content: string;}, date: Dayjs) => {
+    const year = date.year();
+    const month = date.month() + 1;
+    const day = date.date();
+    const delPo: StillOnDetail = {
+      year: year,
+      month: month,
+      day: day,
+      info: value.content,
+      status: value.type
+    }
+    sendPostRequest(DelStillOnDetail, delPo).then((req) => {
+        setRenderInfoList(renderInfoList.filter(item => !(item.year === year 
+          && item.month === month 
+          && item.day === day 
+          && item.status === value.type 
+          && item.info === value.content)))
+    })
+  }
+
   // 以日为单位进行渲染
-  const dateCellRender = (value: Dayjs) => {
+  const dateCellRender = (value: Dayjs, canDelete: boolean = false) => {
     const listData = getListData(value, renderInfoList);
+    if(canDelete) {
+      return (
+        <ul className="events">
+          {listData.map((item) => (
+            <li key={item.content}>
+              <Badge status={item.type as BadgeProps['status']} text={item.content} />
+                <Button style={{marginLeft: '10%', marginBottom: '2px'}} onClick={ async ()=>deleteItem(item, value)}>删除</Button>
+            </li>
+          ))}
+        </ul>
+      );
+    }
     return (
       <ul className="events">
         {listData.map((item) => (
@@ -153,7 +193,7 @@ const TimeOut: React.FC = () => {
         <p><b>日期:</b> {curDate.format('YYYY-MM-DD')}</p>
         <p><b>今天发生了什么:</b></p>
         {
-          dateCellRender(curDate)
+          dateCellRender(curDate, true)
         }
         <p style={{width: 40, height: 30}}>新增: </p>
         <Space.Compact>
@@ -161,12 +201,14 @@ const TimeOut: React.FC = () => {
         <Radio.Group options={options} onChange={handleTypeChange} value={typeValue} />
         </Space.Compact><br/>
         <p style={{width: 40, height: 30}}>内容: </p>
-        <Input defaultValue={'一次只能增加一条'} style={{height: 30}} onChange={(value) => setInfo(value.currentTarget.value)}/>
+        <Input defaultValue={''} style={{height: 30}} onChange={(value) => setInfo(value.currentTarget.value)}/>
 
       </Modal>
     <Calendar cellRender={cellRender} onSelect={(date, info) => {
+      if(date.year() === curDate.year() && date.month() === curDate.month()) {
+        showModal()
+      }
       setCurDate(date)
-      showModal()
     }} />;
   </div>)
 };
